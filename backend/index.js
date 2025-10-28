@@ -8,7 +8,7 @@ dotenv.config();
 const app = express();
 app.use(bodyParser.json());
 
-const VERIFY_TOKEN = "alitestingWhatsapp11"; // 🔑 use your custom verify token
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN; // 🔑 use your custom verify token
 
 // ✅ Step 1: Verification endpoint (Meta sends GET request)
 app.get("/webhook", (req, res) => {
@@ -52,8 +52,8 @@ app.post("/webhook", async (req, res) => {
 });
 
 async function sendReply(to, text) {
-  const phoneNumberId = "YOUR_PHONE_NUMBER_ID"; // from Meta
-  const accessToken = "YOUR_ACCESS_TOKEN";
+  const phoneNumberId = process.env.PHONE_NUMBER_ID; // from Meta
+  const accessToken = process.env.ACCESS_TOKEN; // from Meta
 
   await axios.post(
     `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
