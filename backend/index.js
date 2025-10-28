@@ -8,7 +8,7 @@ dotenv.config();
 const app = express();
 app.use(bodyParser.json());
 
-const VERIFY_TOKEN = "mywhatsapp123"; // 🔑 use your custom verify token
+const VERIFY_TOKEN = "alitestingWhatsapp11"; // 🔑 use your custom verify token
 
 // ✅ Step 1: Verification endpoint (Meta sends GET request)
 app.get("/webhook", (req, res) => {
@@ -72,4 +72,5 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected Successfully"))
   .catch(err => console.error("❌ MongoDB Connection Failed:", err));
 
-app.listen(3000, () => console.log("Server running on port 3000"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
