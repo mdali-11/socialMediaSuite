@@ -14,14 +14,6 @@ const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 
-const QUESTIONS = [
-  "Hey! What’s your name?",
-  "Nice to meet you 😊 What’s your email address?",
-  "Got it! What service are you interested in?",
-  "Thanks! We’ll reach out soon 🚀"
-];
-
-
 // ✅ Step 1: Webhook Verification (Meta -> GET)
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
@@ -38,102 +30,60 @@ app.get("/webhook", (req, res) => {
 });
 
 // ✅ Step 2: Handle Incoming Messages (Meta -> POST)
-// app.post("/webhook", async (req, res) => {
-//   try {
-//     const body = req.body;
-//     console.log("📩 Incoming webhook:", JSON.stringify(body, null, 2));
-
-//     if (!body.object) return res.sendStatus(404);
-
-//     // Some webhooks can include multiple message events in one request
-//     const entries = body.entry || [];
-//     const allMessages = [];
-
-//     // Collect all messages in the webhook batch
-//     for (const entry of entries) {
-//       const changes = entry.changes || [];
-//       for (const change of changes) {
-//         const messages = change.value?.messages || [];
-//         for (const msg of messages) {
-//           allMessages.push({
-//             from: msg.from,
-//             body: msg.text?.body || "",
-//           });
-//         }
-//       }
-//     }
-
-//     // Process all messages concurrently
-//     await Promise.all(
-//       allMessages.map(async ({ from, body }) => {
-//         console.log(`💬 Message from ${from}: "${body}"`);
-
-//         let replyText = "👋 Hello! This is an auto-reply from my bot.";
-
-//         // Example dynamic reply logic
-//         const msg = body.toLowerCase();
-//         if (msg.includes("hi") || msg.includes("hello")) {
-//           replyText = "Hey there 👋 How can I help you today?";
-//         } else if (msg.includes("price")) {
-//           replyText = "💰 Our prices start at ₹499. Want details?";
-//         } else if (msg.includes("thanks")) {
-//           replyText = "You're welcome! 😊";
-//         }
-
-//         // Send reply
-//         await sendReply(from, replyText);
-//       })
-//     );
-
-//     // Always respond quickly to Meta (important)
-//     res.sendStatus(200);
-//   } catch (error) {
-//     console.error("❌ Webhook Error:", error.message);
-//     res.sendStatus(500);
-//   }
-// });
-
 app.post("/webhook", async (req, res) => {
   try {
-    const entries = req.body.entry || [];
+    const body = req.body;
+    console.log("📩 Incoming webhook:", JSON.stringify(body, null, 2));
+
+    if (!body.object) return res.sendStatus(404);
+
+    // Some webhooks can include multiple message events in one request
+    const entries = body.entry || [];
+    const allMessages = [];
+
+    // Collect all messages in the webhook batch
     for (const entry of entries) {
-      for (const change of entry.changes || []) {
-        for (const msg of change.value?.messages || []) {
-          const from = msg.from;
-          const userMsg = msg.text?.body?.toLowerCase() || "";
-
-          let convo = await Conversation.findOne({ userNumber: from });
-
-          if (!convo) {
-            convo = await Conversation.create({ userNumber: from, currentStep: 0 });
-            await sendReply(from, QUESTIONS[0]);
-            continue;
-          }
-
-          const step = convo.currentStep;
-          const nextStep = step + 1;
-
-          // Save user answer
-          convo.answers[`step_${step}`] = userMsg;
-          convo.currentStep = nextStep;
-          await convo.save();
-
-          if (nextStep < QUESTIONS.length) {
-            await sendReply(from, QUESTIONS[nextStep]);
-          } else {
-            await sendReply(from, "✅ Thank you! Your details have been saved.");
-            await Conversation.deleteOne({ userNumber: from }); // reset conversation
-          }
+      const changes = entry.changes || [];
+      for (const change of changes) {
+        const messages = change.value?.messages || [];
+        for (const msg of messages) {
+          allMessages.push({
+            from: msg.from,
+            body: msg.text?.body || "",
+          });
         }
       }
     }
+
+    // Process all messages concurrently
+    await Promise.all(
+      allMessages.map(async ({ from, body }) => {
+        console.log(`💬 Message from ${from}: "${body}"`);
+
+        let replyText = "👋 Hello! This is an auto-reply from my bot.";
+
+        // Example dynamic reply logic
+        const msg = body.toLowerCase();
+        if (msg.includes("hi") || msg.includes("hello")) {
+          replyText = "Hey there 👋 How can I help you today?";
+        } else if (msg.includes("price")) {
+          replyText = "💰 Our prices start at ₹499. Want details?";
+        } else if (msg.includes("thanks")) {
+          replyText = "You're welcome! 😊";
+        }
+
+        // Send reply
+        await sendReply(from, replyText);
+      })
+    );
+
+    // Always respond quickly to Meta (important)
     res.sendStatus(200);
   } catch (error) {
-    console.error("❌ Error:", error);
+    console.error("❌ Webhook Error:", error.message);
     res.sendStatus(500);
   }
 });
-
 
 // ✅ Function to Send Reply (Independent per request)
 async function sendReply(to, text) {
