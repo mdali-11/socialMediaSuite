@@ -3,7 +3,7 @@ import bodyParser from "body-parser";
 import axios from "axios";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
-import Conversation from "./models/Conversation.model.js";
+// import Conversation from "./models/Conversation.model.js";
 
 dotenv.config();
 
