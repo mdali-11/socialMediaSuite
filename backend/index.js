@@ -3,7 +3,7 @@ import bodyParser from "body-parser";
 import axios from "axios";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
-// import Conversation from "./models/Conversation.model.js";
+import Conversation from "./models/Conversation.js";
 
 dotenv.config();
 
@@ -13,6 +13,15 @@ app.use(bodyParser.json());
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
+
+// 🔹 Define your question sequence
+const QUESTIONS = [
+  "👋 Hi! What’s your name?",
+  "Nice to meet you! 😊 What’s your email address?",
+  "Great! What service are you interested in?",
+  "Awesome! What’s your preferred budget range?",
+  "✅ Thanks for sharing! We’ll contact you soon 🚀"
+];
 
 // ✅ Step 1: Webhook Verification (Meta -> GET)
 app.get("/webhook", (req, res) => {
@@ -33,51 +42,53 @@ app.get("/webhook", (req, res) => {
 app.post("/webhook", async (req, res) => {
   try {
     const body = req.body;
-    console.log("📩 Incoming webhook:", JSON.stringify(body, null, 2));
 
     if (!body.object) return res.sendStatus(404);
 
-    // Some webhooks can include multiple message events in one request
     const entries = body.entry || [];
-    const allMessages = [];
-
-    // Collect all messages in the webhook batch
     for (const entry of entries) {
       const changes = entry.changes || [];
       for (const change of changes) {
         const messages = change.value?.messages || [];
         for (const msg of messages) {
-          allMessages.push({
-            from: msg.from,
-            body: msg.text?.body || "",
-          });
+          const from = msg.from;
+          const userMsg = msg.text?.body?.trim() || "";
+
+          if (!userMsg) continue;
+
+          console.log(`💬 Message from ${from}: "${userMsg}"`);
+
+          // Find or create conversation
+          let convo = await Conversation.findOne({ userNumber: from });
+          if (!convo) {
+            convo = await Conversation.create({ userNumber: from, currentStep: 0 });
+            await sendReply(from, QUESTIONS[0]);
+            continue;
+          }
+
+          const step = convo.currentStep;
+          const nextStep = step + 1;
+
+          // Save user’s reply
+          convo.answers[`step_${step}`] = userMsg;
+          convo.currentStep = nextStep;
+          await convo.save();
+
+          // If more questions are left, ask next
+          if (nextStep < QUESTIONS.length) {
+            await sendReply(from, QUESTIONS[nextStep]);
+          } else {
+            // Conversation complete
+            await sendReply(from, "🎉 Thanks! You’ve answered all questions.");
+            console.log("📦 Final user data:", convo.answers);
+
+            // Optionally store / process / send to CRM etc.
+            await Conversation.deleteOne({ userNumber: from }); // clear user state
+          }
         }
       }
     }
 
-    // Process all messages concurrently
-    await Promise.all(
-      allMessages.map(async ({ from, body }) => {
-        console.log(`💬 Message from ${from}: "${body}"`);
-
-        let replyText = "👋 Hello! This is an auto-reply from my bot.";
-
-        // Example dynamic reply logic
-        const msg = body.toLowerCase();
-        if (msg.includes("hi") || msg.includes("hello")) {
-          replyText = "Hey there 👋 How can I help you today?";
-        } else if (msg.includes("price")) {
-          replyText = "💰 Our prices start at ₹499. Want details?";
-        } else if (msg.includes("thanks")) {
-          replyText = "You're welcome! 😊";
-        }
-
-        // Send reply
-        await sendReply(from, replyText);
-      })
-    );
-
-    // Always respond quickly to Meta (important)
     res.sendStatus(200);
   } catch (error) {
     console.error("❌ Webhook Error:", error.message);
@@ -85,7 +96,7 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-// ✅ Function to Send Reply (Independent per request)
+// ✅ Function to send replies
 async function sendReply(to, text) {
   try {
     const url = `https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`;
@@ -103,9 +114,9 @@ async function sendReply(to, text) {
         },
       }
     );
-    console.log(`✅ Reply sent to ${to}: "${text}"`);
+    console.log(`✅ Sent to ${to}: "${text}"`);
   } catch (err) {
-    console.error(`❌ Failed to send reply to ${to}:`, err.response?.data || err.message);
+    console.error(`❌ Send failed to ${to}:`, err.response?.data || err.message);
   }
 }
 
