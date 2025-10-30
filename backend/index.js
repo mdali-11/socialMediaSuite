@@ -4,11 +4,22 @@ import axios from "axios";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import Conversation from "./models/Conversation.js";
+import marketingRoutes from "./routes/marketing.js";
+import cors from "cors";
+
 
 dotenv.config();
 
 const app = express();
+app.use(
+  cors({
+    origin: "*", // allows all origins
+  })
+);
 app.use(bodyParser.json());
+
+app.use("/api/marketing", marketingRoutes);
+
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
@@ -39,10 +50,10 @@ app.get("/webhook", (req, res) => {
 });
 
 // ✅ Step 2: Handle Incoming Messages (Meta -> POST)
+// ✅ Step 2: Handle Incoming Messages (Meta -> POST)
 app.post("/webhook", async (req, res) => {
   try {
     const body = req.body;
-
     if (!body.object) return res.sendStatus(404);
 
     const entries = body.entry || [];
@@ -61,7 +72,11 @@ app.post("/webhook", async (req, res) => {
           // Find or create conversation
           let convo = await Conversation.findOne({ userNumber: from });
           if (!convo) {
-            convo = await Conversation.create({ userNumber: from, currentStep: 0 });
+            convo = await Conversation.create({
+              userNumber: from,
+              currentStep: 0,
+              answers: {}
+            });
             await sendReply(from, QUESTIONS[0]);
             continue;
           }
@@ -69,8 +84,9 @@ app.post("/webhook", async (req, res) => {
           const step = convo.currentStep;
           const nextStep = step + 1;
 
-          // Save user’s reply
-          convo.answers[`step_${step}`] = userMsg;
+          // Save user’s reply with QUESTION text as key
+          const currentQuestion = QUESTIONS[step];
+          convo.answers[currentQuestion] = userMsg;
           convo.currentStep = nextStep;
           await convo.save();
 
@@ -78,12 +94,22 @@ app.post("/webhook", async (req, res) => {
           if (nextStep < QUESTIONS.length) {
             await sendReply(from, QUESTIONS[nextStep]);
           } else {
-            // Conversation complete
+            // ✅ Conversation complete
             await sendReply(from, "🎉 Thanks! You’ve answered all questions.");
             console.log("📦 Final user data:", convo.answers);
 
-            // Optionally store / process / send to CRM etc.
-            await Conversation.deleteOne({ userNumber: from }); // clear user state
+            // Optionally store permanently or move to another collection
+            const finalData = {
+              userNumber: convo.userNumber,
+              answers: convo.answers,
+              createdAt: new Date()
+            };
+
+            // Example: save final data to a separate collection
+            await FinalResponse.create(finalData);
+
+            // Clear temporary conversation state
+            await Conversation.deleteOne({ userNumber: from });
           }
         }
       }
@@ -95,6 +121,7 @@ app.post("/webhook", async (req, res) => {
     res.sendStatus(500);
   }
 });
+
 
 // ✅ Function to send replies
 async function sendReply(to, text) {
