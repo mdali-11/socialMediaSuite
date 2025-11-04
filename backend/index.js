@@ -5,7 +5,11 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import Conversation from "./models/Conversation.js";
 import marketingRoutes from "./routes/marketing.js";
+import videoRoutes from "./routes/videoRoutes.js";
+
 import cors from "cors";
+import SocialMediaCalendarRoutes from './routes/socialMediaCalenderRoutes.js'
+import SalesPlanRoutes from './routes/salesPlanRoutes.js'
 
 
 dotenv.config();
@@ -19,6 +23,10 @@ app.use(
 app.use(bodyParser.json());
 
 app.use("/api/marketing", marketingRoutes);
+app.use("/api/video", videoRoutes);
+app.use('/api/calendar', SocialMediaCalendarRoutes);
+app.use('/api/salesPlan', SalesPlanRoutes);
+
 
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
