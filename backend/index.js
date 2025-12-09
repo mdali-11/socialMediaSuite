@@ -27,6 +27,10 @@ app.use("/api/video", videoRoutes);
 app.use('/api/calendar', SocialMediaCalendarRoutes);
 app.use('/api/salesPlan', SalesPlanRoutes);
 
+app.get("/", (req, res) => {
+  res.send("Social Media Suite Backend is running!");
+});
+
 
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;

@@ -1,0 +1,14 @@
+# Ignore backend dependencies
+node_modules
+npm-debug.log
+
+# Ignore frontend dependencies
+frontend/ui/node_modules
+
+# Ignore git and local config files
+.git
+.gitignore
+
+# Ignore build cache
+Dockerfile
+.dockerignore
