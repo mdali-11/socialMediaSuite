@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import Conversation from "./models/Conversation.js";
 import marketingRoutes from "./routes/marketing.js";
 import videoRoutes from "./routes/videoRoutes.js";
+import mailRoutes from "./routes/mailRoute.js";
 
 import cors from "cors";
 import SocialMediaCalendarRoutes from './routes/socialMediaCalenderRoutes.js'
@@ -26,6 +27,7 @@ app.use("/api/marketing", marketingRoutes);
 app.use("/api/video", videoRoutes);
 app.use('/api/calendar', SocialMediaCalendarRoutes);
 app.use('/api/salesPlan', SalesPlanRoutes);
+app.use("/api/mail", mailRoutes);
 
 app.get("/", (req, res) => {
   res.send("Social Media Suite Backend is running!");
