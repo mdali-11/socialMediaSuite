@@ -3,146 +3,232 @@ import bodyParser from "body-parser";
 import axios from "axios";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import cors from "cors";
+
+// Routes
 import Conversation from "./models/Conversation.js";
 import marketingRoutes from "./routes/marketing.js";
 import videoRoutes from "./routes/videoRoutes.js";
 import mailRoutes from "./routes/mailRoute.js";
+import SocialMediaCalendarRoutes from "./routes/socialMediaCalenderRoutes.js";
+import SalesPlanRoutes from "./routes/salesPlanRoutes.js";
+import youtubeRouter from "./routes/youtubeRoutes.js";
 
-import cors from "cors";
-import SocialMediaCalendarRoutes from './routes/socialMediaCalenderRoutes.js'
-import SalesPlanRoutes from './routes/salesPlanRoutes.js'
-
+// YouTube OAuth
+import { getOAuth2Client, saveToken } from "./services/upload.js";
 
 dotenv.config();
 
 const app = express();
-app.use(
-  cors({
-    origin: "*", // allows all origins
-  })
-);
+app.use(cors({ origin: "*" }));
 app.use(bodyParser.json());
 
+// ==========================
+// 🔹 GOOGLE AUTH ROUTES
+// ==========================
+
+// Start OAuth flow
+app.get("/auth/google", (req, res) => {
+  try {
+    const oAuth2Client = getOAuth2Client();
+    
+    // Force consent to get refresh_token
+    const authUrl = oAuth2Client.generateAuthUrl({
+      access_type: "offline",
+      scope: ["https://www.googleapis.com/auth/youtube.upload"],
+      prompt: "consent", // This forces consent screen
+      include_granted_scopes: true
+    });
+    
+    console.log("🔐 Redirecting to Google OAuth...");
+    console.log("📝 Note: You MUST see the consent screen to get a refresh token");
+    res.redirect(authUrl);
+  } catch (error) {
+    console.error("❌ Auth error:", error.message);
+    res.status(500).send(`❌ Error: ${error.message}`);
+  }
+});
+
+// OAuth callback
+app.get("/oauth2callback", async (req, res) => {
+  try {
+    const code = req.query.code;
+    const error = req.query.error;
+    
+    if (error) {
+      console.error("❌ OAuth error:", error);
+      return res.status(400).send(`❌ Authorization failed: ${error}`);
+    }
+    
+    if (!code) {
+      return res.status(400).send("❌ No authorization code received");
+    }
+
+    const oAuth2Client = getOAuth2Client();
+    const { tokens } = await oAuth2Client.getToken(code);
+    
+    console.log("📋 Received tokens:", {
+      has_access_token: !!tokens.access_token,
+      has_refresh_token: !!tokens.refresh_token,
+      expiry: tokens.expiry_date ? new Date(tokens.expiry_date) : 'none'
+    });
+    
+    if (!tokens.refresh_token) {
+      console.warn("⚠️ WARNING: No refresh_token received! This may cause issues.");
+      console.warn("⚠️ Try revoking access and re-authorizing:");
+      console.warn("⚠️ https://myaccount.google.com/permissions");
+    }
+    
+    // Save token using the service function
+    saveToken(tokens);
+    
+    console.log("✅ YouTube authorization successful!");
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Authorization ${tokens.refresh_token ? 'Successful' : 'Warning'}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              height: 100vh;
+              margin: 0;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            }
+            .container {
+              background: white;
+              padding: 40px;
+              border-radius: 10px;
+              box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+              text-align: center;
+              max-width: 500px;
+            }
+            h1 { color: ${tokens.refresh_token ? '#28a745' : '#ffc107'}; margin-bottom: 20px; }
+            p { color: #666; font-size: 16px; margin: 10px 0; }
+            .success-icon { font-size: 60px; margin-bottom: 20px; }
+            .warning { background: #fff3cd; padding: 15px; border-radius: 5px; margin-top: 20px; }
+            .warning-text { color: #856404; font-size: 14px; }
+            a { color: #667eea; text-decoration: none; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="success-icon">${tokens.refresh_token ? '✅' : '⚠️'}</div>
+            <h1>YouTube Authorization ${tokens.refresh_token ? 'Complete' : 'Warning'}</h1>
+            <p>You can now close this window.</p>
+            <p><strong>Token saved to services/token.json</strong></p>
+            ${!tokens.refresh_token ? `
+              <div class="warning">
+                <p class="warning-text"><strong>⚠️ No refresh token received!</strong></p>
+                <p class="warning-text">This may cause authentication to fail after 1 hour.</p>
+                <p class="warning-text">To fix: <a href="https://myaccount.google.com/permissions" target="_blank">Revoke access</a> and re-authorize.</p>
+              </div>
+            ` : ''}
+          </div>
+        </body>
+      </html>
+    `);
+  } catch (err) {
+    console.error("❌ OAuth callback error:", err);
+    res.status(500).send(`❌ OAuth Failed: ${err.message}`);
+  }
+});
+
+// ==========================
+// 🔹 ROUTES
+// ==========================
 app.use("/api/marketing", marketingRoutes);
 app.use("/api/video", videoRoutes);
-app.use('/api/calendar', SocialMediaCalendarRoutes);
-app.use('/api/salesPlan', SalesPlanRoutes);
+app.use("/api/calendar", SocialMediaCalendarRoutes);
+app.use("/api/salesPlan", SalesPlanRoutes);
 app.use("/api/mail", mailRoutes);
+app.use("/youtube", youtubeRouter); // YouTube routes
 
 app.get("/", (req, res) => {
   res.send("Social Media Suite Backend is running!");
 });
 
-
-
+// ==========================
+// 🔹 WHATSAPP WEBHOOK
+// ==========================
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 
-// 🔹 Define your question sequence
 const QUESTIONS = [
-  "👋 Hi! What’s your name?",
-  "Nice to meet you! 😊 What’s your email address?",
+  "👋 Hi! What's your name?",
+  "Nice to meet you! 😊 What's your email address?",
   "Great! What service are you interested in?",
-  "Awesome! What’s your preferred budget range?",
-  "✅ Thanks for sharing! We’ll contact you soon 🚀"
+  "Awesome! What's your preferred budget range?",
+  "✅ Thanks for sharing! We'll contact you soon 🚀",
 ];
 
-// ✅ Step 1: Webhook Verification (Meta -> GET)
+// Verify webhook
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("✅ Webhook verified successfully!");
     res.status(200).send(challenge);
   } else {
-    console.warn("❌ Webhook verification failed.");
     res.sendStatus(403);
   }
 });
 
-// ✅ Step 2: Handle Incoming Messages (Meta -> POST)
-// ✅ Step 2: Handle Incoming Messages (Meta -> POST)
+// Receive messages
 app.post("/webhook", async (req, res) => {
   try {
-    const body = req.body;
-    if (!body.object) return res.sendStatus(404);
+    const entries = req.body.entry || [];
 
-    const entries = body.entry || [];
     for (const entry of entries) {
-      const changes = entry.changes || [];
-      for (const change of changes) {
-        const messages = change.value?.messages || [];
-        for (const msg of messages) {
+      for (const change of entry.changes || []) {
+        for (const msg of change.value?.messages || []) {
           const from = msg.from;
-          const userMsg = msg.text?.body?.trim() || "";
-
+          const userMsg = msg.text?.body?.trim();
           if (!userMsg) continue;
 
-          console.log(`💬 Message from ${from}: "${userMsg}"`);
-
-          // Find or create conversation
           let convo = await Conversation.findOne({ userNumber: from });
           if (!convo) {
             convo = await Conversation.create({
               userNumber: from,
               currentStep: 0,
-              answers: {}
+              answers: {},
             });
             await sendReply(from, QUESTIONS[0]);
             continue;
           }
 
           const step = convo.currentStep;
-          const nextStep = step + 1;
+          convo.answers[QUESTIONS[step]] = userMsg;
+          convo.currentStep++;
 
-          // Save user’s reply with QUESTION text as key
-          const currentQuestion = QUESTIONS[step];
-          convo.answers[currentQuestion] = userMsg;
-          convo.currentStep = nextStep;
           await convo.save();
 
-          // If more questions are left, ask next
-          if (nextStep < QUESTIONS.length) {
-            await sendReply(from, QUESTIONS[nextStep]);
+          if (convo.currentStep < QUESTIONS.length) {
+            await sendReply(from, QUESTIONS[convo.currentStep]);
           } else {
-            // ✅ Conversation complete
-            await sendReply(from, "🎉 Thanks! You’ve answered all questions.");
-            console.log("📦 Final user data:", convo.answers);
-
-            // Optionally store permanently or move to another collection
-            const finalData = {
-              userNumber: convo.userNumber,
-              answers: convo.answers,
-              createdAt: new Date()
-            };
-
-            // Example: save final data to a separate collection
-            await FinalResponse.create(finalData);
-
-            // Clear temporary conversation state
+            await sendReply(from, "🎉 Thanks! You've answered all questions.");
             await Conversation.deleteOne({ userNumber: from });
           }
         }
       }
     }
-
     res.sendStatus(200);
-  } catch (error) {
-    console.error("❌ Webhook Error:", error.message);
+  } catch (err) {
+    console.error(err);
     res.sendStatus(500);
   }
 });
 
-
-// ✅ Function to send replies
+// Send WhatsApp reply
 async function sendReply(to, text) {
   try {
-    const url = `https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`;
     await axios.post(
-      url,
+      `https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`,
       {
         messaging_product: "whatsapp",
         to,
@@ -155,17 +241,21 @@ async function sendReply(to, text) {
         },
       }
     );
-    console.log(`✅ Sent to ${to}: "${text}"`);
   } catch (err) {
-    console.error(`❌ Send failed to ${to}:`, err.response?.data || err.message);
+    console.error(`❌ Failed to send message to ${to}:`, err.response?.data || err.message);
   }
 }
 
-// ✅ MongoDB connection
+// ==========================
+// 🔹 DATABASE + SERVER
+// ==========================
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected Successfully"))
   .catch((err) => console.error("❌ MongoDB Connection Failed:", err));
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🔐 Authorize YouTube at: http://localhost:${PORT}/auth/google`);
+});

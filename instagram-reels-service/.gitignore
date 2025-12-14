@@ -1,0 +1,10 @@
+node_modules/
+__pycache__/
+*.pyc
+.env
+node_service/uploads/
+python_service/temp_uploads/
+python_service/sessions/
+logs/
+*.log
+.DS_Store
