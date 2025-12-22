@@ -13,6 +13,8 @@ import mailRoutes from "./routes/mailRoute.js";
 import SocialMediaCalendarRoutes from "./routes/socialMediaCalenderRoutes.js";
 import SalesPlanRoutes from "./routes/salesPlanRoutes.js";
 import youtubeRouter from "./routes/youtubeRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
+import whatsappRoutes from "./routes/whatsappRoutes.js";
 
 // YouTube OAuth
 import { getOAuth2Client, saveToken } from "./services/upload.js";
@@ -146,6 +148,8 @@ app.use("/api/calendar", SocialMediaCalendarRoutes);
 app.use("/api/salesPlan", SalesPlanRoutes);
 app.use("/api/mail", mailRoutes);
 app.use("/youtube", youtubeRouter); // YouTube routes
+app.use("/api/payment", paymentRoutes);
+app.use("/api/whatsapp", whatsappRoutes);
 
 app.get("/", (req, res) => {
   res.send("Social Media Suite Backend is running!");
@@ -165,6 +169,31 @@ const QUESTIONS = [
   "Awesome! What's your preferred budget range?",
   "✅ Thanks for sharing! We'll contact you soon 🚀",
 ];
+
+app.get("/debug-whatsapp", async (req, res) => {
+  try {
+    const testNumber = "91XXXXXXXXXX"; // Your own WhatsApp number for testing
+    const response = await axios.post(
+      `https://graph.facebook.com/v21.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: "whatsapp",
+        to: testNumber,
+        text: { body: "🚀 Debug test from backend!" }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+          "Content-Type": "application/json",
+        }
+      }
+    );
+    res.json({ success: true, data: response.data });
+  } catch (err) {
+    console.error("❌ WhatsApp debug error:", err.response?.data || err.message);
+    res.status(500).json({ success: false, error: err.response?.data || err.message });
+  }
+});
+
 
 // Verify webhook
 app.get("/webhook", (req, res) => {

@@ -3,7 +3,7 @@ node_modules/
 
 # Environment variables (your secrets!)
 .env
-token.json
+toke
 
 
 # Logs
