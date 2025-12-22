@@ -172,7 +172,7 @@ const QUESTIONS = [
 
 app.get("/debug-whatsapp", async (req, res) => {
   try {
-    const testNumber = "91XXXXXXXXXX"; // Your own WhatsApp number for testing
+    const testNumber = "919007977270"; // Your own WhatsApp number for testing
     const response = await axios.post(
       `https://graph.facebook.com/v21.0/${process.env.PHONE_NUMBER_ID}/messages`,
       {
