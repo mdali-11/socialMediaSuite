@@ -13,8 +13,8 @@ import mailRoutes from "./routes/mailRoute.js";
 import SocialMediaCalendarRoutes from "./routes/socialMediaCalenderRoutes.js";
 import SalesPlanRoutes from "./routes/salesPlanRoutes.js";
 import youtubeRouter from "./routes/youtubeRoutes.js";
-import paymentRoutes from "./routes/paymentRoutes.js";
 import whatsappRoutes from "./routes/whatsappRoutes.js";
+import paymentRoutes from "./routes/payment.js"
 
 // YouTube OAuth
 import { getOAuth2Client, saveToken } from "./services/upload.js";
@@ -150,6 +150,7 @@ app.use("/api/mail", mailRoutes);
 app.use("/youtube", youtubeRouter); // YouTube routes
 app.use("/api/payment", paymentRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
+app.use('/payment', paymentRoutes);
 
 app.get("/", (req, res) => {
   res.send("Social Media Suite Backend is running!");

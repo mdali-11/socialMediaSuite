@@ -1,57 +1,26 @@
-// models/Order.js
 import mongoose from "mongoose";
 
 const OrderSchema = new mongoose.Schema({
-  // Who is paying
-  userId: {
-    type: String,
-    required: true
+  orderId: { type: String, required: true, unique: true }, // The ID sent to Cashfree
+  userId: { type: String, required: true },
+  projectId: { type: mongoose.Schema.Types.ObjectId, ref: "Project" }, // Link to your Project model
+  amount: { type: Number, required: true },
+  currency: { type: String, default: "INR" },
+  
+  // Cashfree specific tracking
+  paymentSessionId: { type: String }, 
+  cfOrderId: { type: String }, // Cashfree's internal order reference
+  
+  status: { 
+    type: String, 
+    enum: ["PENDING", "PAID", "FAILED", "CANCELLED"], 
+    default: "PENDING" 
   },
-
-  // Razorpay order id
-  orderId: {
-    type: String,
-    required: true,
-    unique: true
-  },
-
-  // Amount in paise
-  amount: {
-    type: Number,
-    required: true
-  },
-
-  currency: {
-    type: String,
-    default: "INR"
-  },
-
-  receipt: {
-    type: String
-  },
-
-  // Payment status lock
-  status: {
-    type: String,
-    enum: ["CREATED", "PAID", "FAILED"],
-    default: "CREATED"
-  },
-
-  // Razorpay payment id (after success)
-  razorpayPaymentId: {
-    type: String
-  },
-
-  paidAt: {
-    type: Date
-  },
-
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
+  
+  paymentMethod: String, // e.g., "UPI", "Card"
+  paidAt: Date,
+  createdAt: { type: Date, default: Date.now }
 });
 
 const Order = mongoose.model("Order", OrderSchema);
-
 export default Order;

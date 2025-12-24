@@ -7,6 +7,7 @@ import MarketingPrompt from './Pages/MarketingPrompt'
 import VideoGenerator from './Pages/VideoGenerator'
 import CalendarManager from './Components/CalenderManager'
 import SalesPlanForm from './Components/SalesPlanForm'
+import PaymentGateway from './Components/PaymentGateway'
 
 function App() {
   const [count, setCount] = useState(0)
@@ -18,6 +19,7 @@ function App() {
      <VideoGenerator />
      <CalendarManager />
      <SalesPlanForm />
+     <PaymentGateway />
      </>
   )
 }
