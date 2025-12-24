@@ -1,6 +1,6 @@
 import express from "express";
 import axios from "axios";
-import Order from "../models/order.js";
+import Order from "../models/Order.js";
 import dotenv from "dotenv";
 
 dotenv.config();
