@@ -4,6 +4,10 @@ import axios from "axios";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
+import session from 'express-session';
+import passport from 'passport';
+import authRoutes from './routes/auth.js';
+import './config/passport.js';
 
 // Routes
 import Conversation from "./models/Conversation.js";
@@ -138,6 +142,12 @@ app.get("/oauth2callback", async (req, res) => {
     res.status(500).send(`❌ OAuth Failed: ${err.message}`);
   }
 });
+
+app.use(session({ secret: 'mysecret', resave: false, saveUninitialized: true }));
+app.use(passport.initialize());
+app.use(passport.session());
+
+app.use('/auth', authRoutes);
 
 // ==========================
 // 🔹 ROUTES
