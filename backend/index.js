@@ -34,7 +34,7 @@ app.use(bodyParser.json());
 // ==========================
 
 // Start OAuth flow
-app.get("/auth/google", (req, res) => {
+app.get("/auth/youtube/google", (req, res) => {
   try {
     const oAuth2Client = getOAuth2Client();
     
