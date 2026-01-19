@@ -75,7 +75,7 @@ export function saveToken(tokens) {
 }
 
 // Upload video to YouTube
-export async function uploadVideo({ filePath, title, description, tags = [] }) {
+export async function uploadVideo({ filePath, title, description, tags = [] , publishAt }) {
   try {
     console.log("🔍 Starting upload process...");
     console.log("📁 File path:", filePath);
@@ -128,7 +128,8 @@ export async function uploadVideo({ filePath, title, description, tags = [] }) {
           tags: tags.length > 0 ? tags : ["youtube", "api", "upload"],
         },
         status: { 
-          privacyStatus: "private" // Change to "public" or "unlisted" as needed
+          privacyStatus: "private" ,
+           publishAt: publishAt ? new Date(publishAt).toISOString() : undefined
         },
       },
       media: { 
